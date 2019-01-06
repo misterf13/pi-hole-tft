@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from subprocess import Popen, check_output
+from termcolor import colored
 import pi_messages as pi_msg
 import os
 import RPi.GPIO as GPIO
@@ -51,6 +54,9 @@ def download_padd(padd_url, padd_file):
     padd_f.write(html)
   return response
 
+def check_file_perms(padd_file):
+  return os.stat(padd_file).st_uid
+
 def pid_signal(pid, n_signal):
   os.kill(pid, n_signal) 
 
@@ -71,10 +77,20 @@ def update_padd():
   with open(SCREEN, 'w') as tty:
     tty.write(pi_msg.update_padd_msg)
     ret = download_padd(padd_url, padd_dst)
-    tty.write('Return code: %s, msg: %s' % (ret.code, ret.msg))
-    tty.write('Restarting PADD...')
-  pid_signal(pid, signal.SIGCONT)
-  pid_signal(pid, signal.SIGTERM)
+    tty.write('Return code: %s, msg: %s\n' % (ret.code, ret.msg))
+    tty.write('Checking file permissions\n')
+    ret = check_file_perms(padd_dst)
+    if ret == 1000:
+      tty.write('File permissions...[%s]\n' % colored('OK', 'green'))
+    else:
+      tty.write('File permissions...[%s]\n' % colored('ERR', 'red'))
+    tty.write('Attempting PADD restart in:\n')
+    for i in range(10, -1, -1):
+      tty.write('%s %s %s\n' % (colored('*'*i, 'magenta'),
+                                colored(i, 'blue'),
+                                colored('*'*i, 'magenta')))
+      time.sleep(1)
+  pid_signal(pid, signal.SIGKILL)
 
 def print_help():
   pid = get_padd_pid()
