@@ -24,11 +24,11 @@ def check_root():
 def gpio_setup(gpio_list):
   GPIO.setup(gpio_list, GPIO.IN, pull_up_down=GPIO.PUD_UP)
   for pin in gpio_list:
-    GPIO.add_event_detect(pin, GPIO.RISING, callback=my_callback, bouncetime=600)
+    GPIO.add_event_detect(pin, GPIO.FALLING, callback=my_callback, bouncetime=600)
 
 def backlight_status(backlight_file):
   with open(backlight_file, 'r') as b_file:
-    # Strip the newline and cast to int
+    # Strip the newline and convert to int
     status = int(b_file.read().strip('\n'))
   return status
 
@@ -44,6 +44,7 @@ def backlight_control(backlight, backlight_file):
 
 def get_padd_pid():
   with open(PADD_PID_FILE, 'r') as pid_f:
+    # Strip the newline and convert PID to int
     padd_pid = int(pid_f.read().strip('\n'))
   return padd_pid
 
@@ -58,13 +59,13 @@ def check_file_perms(padd_file):
   return os.stat(padd_file).st_uid
 
 def pid_signal(pid, n_signal):
-  os.kill(pid, n_signal) 
+  os.kill(pid, n_signal)
 
 def update_pihole():
   pid = get_padd_pid()
   pid_signal(pid, signal.SIGSTOP)
   with open(SCREEN, 'w') as tty:
-    tty.write(pi_msg.update_pihole_msg)
+    tty.write(colored(pi_msg.update_pihole_msg, 'blue'))
     p = Popen(['pihole', '-up'], stdout=tty)
   time.sleep(10)
   pid_signal(pid, signal.SIGCONT)
@@ -75,20 +76,18 @@ def update_padd():
   pid = get_padd_pid()
   pid_signal(pid, signal.SIGSTOP)
   with open(SCREEN, 'w') as tty:
-    tty.write(pi_msg.update_padd_msg)
+    tty.write(colored(pi_msg.update_padd_msg, 'blue'))
     ret = download_padd(padd_url, padd_dst)
     tty.write('Return code: %s, msg: %s\n' % (ret.code, ret.msg))
-    tty.write('Checking file permissions\n')
+    tty.write(colored('Checking file permissions\n', 'magenta'))
     ret = check_file_perms(padd_dst)
     if ret == 1000:
       tty.write('File permissions...[%s]\n' % colored('OK', 'green'))
     else:
       tty.write('File permissions...[%s]\n' % colored('ERR', 'red'))
     tty.write('Attempting PADD restart in:\n')
-    for i in range(10, -1, -1):
-      tty.write('%s %s %s\n' % (colored('*'*i, 'magenta'),
-                                colored(i, 'blue'),
-                                colored('*'*i, 'magenta')))
+    for i in range(10, 0, -1):
+      tty.write('%s %s\n' % (colored(i, 'blue'), colored('*'*i, 'magenta')))
       time.sleep(1)
   pid_signal(pid, signal.SIGKILL)
 
@@ -96,7 +95,11 @@ def print_help():
   pid = get_padd_pid()
   pid_signal(pid, signal.SIGSTOP)
   with open(SCREEN, 'w') as tty:
-    tty.write(pi_msg.help_msg)
+    tty.write(colored('################ HELP MENU ###############\n',
+              'blue'))
+    tty.write(colored(pi_msg.help_msg, 'green'))
+    tty.write(colored('##########################################\n',
+              'blue'))
   time.sleep(10)
   pid_signal(pid, signal.SIGCONT)
 
@@ -131,6 +134,7 @@ def my_callback( button_input ):
 
 def signal_handler(sig, frame):
   print('You pressed Ctrl+C!')
+  print('Running GPIO cleanup.')
   GPIO.cleanup()
   sys.exit(2)
 
@@ -138,14 +142,13 @@ def main():
   check_root()
   GPIO.setmode(GPIO.BCM)
   # Pin 17 is mentioned as pin 18 in the TFT docs.
+  # https://learn.adafruit.com/adafruit-pitft-28-inch-resistive-touchscreen-display-raspberry-pi/overview
+  # Pin 21 is pin 27 in rev 2.
   gpio_list = [17, 22, 23, 27]
   gpio_setup(gpio_list)
   signal.signal(signal.SIGINT, signal_handler)
   print('Press Ctrl+C to quit')
   signal.pause()
-  while True:
-    time.sleep(1)
-  GPIO.cleanup()
 
 if __name__ == '__main__':
   main()

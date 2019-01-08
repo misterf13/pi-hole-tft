@@ -9,9 +9,7 @@ update_padd_msg = '''\n
 ##########################################\n'''
 
 help_msg = '''
-################ HELP MENU ###############\n
 <--Turn screen on/off\n\n\n\n
 <--Run pi-hole update\n\n\n\n
 <--Update and restart PADD\n\n\n\n
-<--Print this help menu\n
-##########################################'''
+<--Print this help menu\n'''
